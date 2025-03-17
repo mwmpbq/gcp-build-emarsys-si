@@ -7,6 +7,7 @@ from flask import Flask, jsonify
 
 app = Flask(__name__)
 
+
 # Konfiguration – diese Werte können auch über Umgebungsvariablen gesetzt werden.
 INHABER_TOKEN = os.environ.get("INHABER_TOKEN", "MnOPw8nrNf-K9pGu3X-NFGpuIcCIr6_fMYoTckz8fXnfVvMGmadWagKpfpHlTlCx-0VyC7T_wyq5DAuWJawfDMqAzk3lrun172ezVSiUeSk")
 BIGQUERY_TABLE = os.environ.get("BIGQUERY_TABLE", "myposter-data-hub.mp_mkt_4_crm.crm_emarsys_order_article")
