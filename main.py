@@ -2,41 +2,64 @@ import os
 import csv
 import io
 import logging
+from datetime import datetime
 from google.cloud import bigquery  # Bibliothek zur Kommunikation mit Google BigQuery
-import requests  # Zum Senden von HTTP-Anfragen
-from flask import Flask, jsonify  # Flask ist ein leichtgewichtiges Webframework, jsonify wandelt Daten in JSON um
+import requests  # Für HTTP-Anfragen
+from flask import Flask, jsonify, request  # Flask ist ein leichtgewichtiges Webframework
 
-# Logging konfigurieren
+# Logging konfigurieren: DEBUG-Level gibt sehr detaillierte Informationen aus
 logging.basicConfig(
-    level=logging.DEBUG,  # Setzt den minimalen Log-Level auf DEBUG (d.h. alle Debug-, Info-, Warnungs- und Fehlermeldungen werden ausgegeben)
-    format="%(asctime)s [%(levelname)s] %(message)s"  # Format für die Log-Ausgaben
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Konfiguration – entweder aus Environment Variablen oder mit Standardwerten
+# Konfiguration: Entweder werden Umgebungsvariablen genutzt oder Standardwerte verwendet
 INHABER_TOKEN = os.environ.get("INHABER_TOKEN", "Dein_Inhaber_Token")
 BIGQUERY_TABLE = os.environ.get("BIGQUERY_TABLE", "myposter-data-hub.mp_mkt_4_crm.crm_emarsys_order_article")
 API_ENDPOINT = os.environ.get("API_ENDPOINT", "https://admin.scarabresearch.com/hapi/merchant/1B86E9D84EC2F51F/sales-data/api")
 
-def fetch_bigquery_data():
+def fetch_bigquery_data(mode='all'):
+    """
+    Ruft Daten aus BigQuery ab.
+    Wenn mode='yesterday' wird nur die Daten von gestern abgerufen,
+    andernfalls werden alle Daten abgefragt.
+    
+    Die Spalte 'timestamp' wird dabei zur Identifikation des gestrigen Datums genutzt.
+    """
     logger.debug("Starte BigQuery-Client")
     client = bigquery.Client()
-    query = f"SELECT * FROM `{BIGQUERY_TABLE}`"
-    logger.debug("Führe Query aus: %s", query)
+
+    if mode == 'yesterday':
+        # Filter: DATE(timestamp) entspricht dem gestrigen Datum
+        query = (
+            f"SELECT * FROM `{BIGQUERY_TABLE}` "
+            "WHERE DATE(timestamp) = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)"
+        )
+        logger.info("Abfrage: Nur Daten vom gestrigen Tag")
+    else:
+        query = f"SELECT * FROM `{BIGQUERY_TABLE}`"
+        logger.info("Abfrage: Alle Daten")
+    
+    logger.debug("Auszuführende Query: %s", query)
     query_job = client.query(query)
-    results = query_job.result()  # Warten, bis die Ergebnisse vorliegen
-    # Falls verfügbar, kann man die Anzahl der Zeilen loggen:
+    results = query_job.result()  # Blockiert, bis die Ergebnisse vorliegen
+
     try:
         row_count = results.total_rows
     except Exception:
         row_count = "unbekannt"
-    logger.debug("Query erfolgreich abgeschlossen, Anzahl der Zeilen: %s", row_count)
+    logger.debug("Query abgeschlossen, Zeilenanzahl: %s", row_count)
     return results
 
 def convert_to_csv(results):
-    logger.debug("Beginne mit der Konvertierung der Ergebnisse in CSV")
+    """
+    Konvertiert das Query-Ergebnis in einen CSV-String.
+    CSV (Comma-Separated Values) ist ein Format, um tabellarische Daten als Text zu speichern.
+    """
+    logger.debug("Beginne Konvertierung in CSV")
     output = io.StringIO()
     writer = csv.writer(output)
     
@@ -47,12 +70,16 @@ def convert_to_csv(results):
         writer.writerow(headers)
         for row in results:
             writer.writerow([row[field] for field in headers])
+    
     csv_content = output.getvalue()
     logger.debug("CSV-Konvertierung abgeschlossen, Größe: %d Bytes", len(csv_content))
     return csv_content
 
 def send_data_to_emarsys(csv_data):
-    logger.debug("Sende CSV-Daten an Emarsys, Datenlänge: %d Bytes", len(csv_data))
+    """
+    Sendet den CSV-String per HTTP-POST an den Emarsys-API-Endpunkt.
+    """
+    logger.debug("Sende CSV-Daten an Emarsys (Datenlänge: %d Bytes)", len(csv_data))
     headers = {
         "Authorization": f"bearer {INHABER_TOKEN}",
         "Content-type": "text/csv",
@@ -60,7 +87,7 @@ def send_data_to_emarsys(csv_data):
     }
     try:
         response = requests.post(API_ENDPOINT, headers=headers, data=csv_data.encode("utf-8"))
-        logger.debug("Emarsys API antwortete mit Status: %s", response.status_code)
+        logger.debug("Emarsys-Antwort: Status %s", response.status_code)
         return response
     except Exception as e:
         logger.error("Fehler beim Senden der Daten an Emarsys: %s", str(e))
@@ -68,10 +95,17 @@ def send_data_to_emarsys(csv_data):
 
 @app.route('/', methods=['GET'])
 def main_endpoint():
-    logger.info("Empfange Anfrage an '/'")
+    """
+    Hauptendpunkt, der den gewünschten Modus anhand eines URL-Parameters auswählt:
+      - ?mode=all      => Alle Daten werden abgerufen (Standard)
+      - ?mode=yesterday => Es werden nur die Daten vom gestrigen Tag abgerufen
+    """
+    mode = request.args.get('mode', 'all')
+    logger.info("Modus ausgewählt: %s", mode)
+    
     try:
-        logger.info("Hole Daten von BigQuery")
-        results = fetch_bigquery_data()
+        logger.info("Starte Datenabfrage")
+        results = fetch_bigquery_data(mode)
         logger.info("Wandle Daten in CSV um")
         csv_data = convert_to_csv(results)
         logger.info("Sende CSV-Daten an Emarsys")
@@ -83,7 +117,7 @@ def main_endpoint():
             "response_text": response.text
         })
     except Exception as e:
-        logger.exception("Ein Fehler ist aufgetreten während der Verarbeitung der Anfrage")
+        logger.exception("Fehler während der Verarbeitung")
         return jsonify({"status": "error", "error": str(e)}), 500
 
 if __name__ == '__main__':
