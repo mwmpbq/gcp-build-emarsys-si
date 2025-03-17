@@ -1,0 +1,10 @@
+steps:
+  # Baue das Container-Image mithilfe des Dockerfiles
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build', 
+      '-t', 'eu-docker.pkg.dev/myposter-data-hub/mp-emarsys-si-api/api-push:latest', 
+      '.'
+    ]
+images:
+  - 'eu-docker.pkg.dev/myposter-data-hub/mp-emarsys-si-api/api-push:latest'
