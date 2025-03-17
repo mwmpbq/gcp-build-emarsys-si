@@ -10,6 +10,8 @@ COPY requirements.txt .
 # Installiere die benötigten Python-Pakete
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN pip freeze
+
 # Kopiere den restlichen Quellcode in das Arbeitsverzeichnis
 COPY . .
 
