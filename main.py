@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Konfiguration: Entweder werden Umgebungsvariablen genutzt oder Standardwerte verwendet
-INHABER_TOKEN = os.environ.get("INHABER_TOKEN", "Dein_Inhaber_Token")
+INHABER_TOKEN = os.environ.get("INHABER_TOKEN", "MnOPw8nrNf-K9pGu3X-NFGpuIcCIr6_fMYoTckz8fXnfVvMGmadWagKpfpHlTlCx-0VyC7T_wyq5DAuWJawfDMqAzk3lrun172ezVSiUeSk")
 BIGQUERY_TABLE = os.environ.get("BIGQUERY_TABLE", "myposter-data-hub.mp_mkt_4_crm.crm_emarsys_order_article")
 API_ENDPOINT = os.environ.get("API_ENDPOINT", "https://admin.scarabresearch.com/hapi/merchant/1B86E9D84EC2F51F/sales-data/api")
 
