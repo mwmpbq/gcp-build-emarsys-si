@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 8080
 
 # Starte die Anwendung mit Gunicorn als Produktionsserver und setze den Timeout auf 120 Sekunden
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "5400", "main:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "3600", "main:app"]
