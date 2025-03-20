@@ -4,7 +4,10 @@ steps:
     args: [
       'build', 
       '-t', 'europe-docker.pkg.dev/myposter-data-hub/mp-emarsys-si-api/api-push:latest', 
-      '.'
+      '.' 
     ]
 images:
   - 'europe-docker.pkg.dev/myposter-data-hub/mp-emarsys-si-api/api-push:latest'
+
+options:
+  logging: 'CLOUD_LOGGING_ONLY'
